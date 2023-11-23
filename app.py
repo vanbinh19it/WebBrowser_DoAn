@@ -1,4 +1,5 @@
 import sys
+import json
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtWebEngineWidgets import *
@@ -35,6 +36,8 @@ class MainWindow(QMainWindow):
         self.extensions = []
         self.setCentralWidget(self.browser)
         self.showMaximized()
+        self.bookmarks = []
+        self.load_bookmarks()
 
         navbar = QToolBar()
         self.addToolBar(navbar)
@@ -83,6 +86,16 @@ class MainWindow(QMainWindow):
         home_btn = QAction("Home", self)
         home_btn.triggered.connect(self.navigate_home)
         navbar.addAction(home_btn)
+
+        # Create bookmark action and add it to the toolbar
+        bookmark_btn = QAction("Bookmark", self)
+        bookmark_btn.triggered.connect(self.add_bookmark)
+        navbar.addAction(bookmark_btn)
+
+        # Corrected method name
+        show_bookmarks_btn = QAction("Show Bookmarks", self)
+        show_bookmarks_btn.triggered.connect(self.show_bookmarks_dialog)
+        navbar.addAction(show_bookmarks_btn)
 
         self.url_bar = QLineEdit()
         self.url_bar.returnPressed.connect(self.navigate_to_url)
@@ -216,6 +229,40 @@ class MainWindow(QMainWindow):
     def open_url(self, url):
         self.browser.setUrl(QUrl(url))
 
+    def show_bookmarks_dialog(self):
+        bookmarks_dialog = BookmarksDialog(self.bookmarks, parent=self)
+        bookmarks_dialog.exec_()
+
+    # add bookmarks
+    def add_bookmark(self):
+        current_url = self.browser.url().toString()
+        if current_url not in self.bookmarks:
+            self.bookmarks.append(current_url)
+            QMessageBox.information(
+                self, "Bookmark Added", "Bookmark added successfully."
+            )
+            # Save bookmarks to file after adding a new bookmark
+            self.save_bookmarks()
+
+    # ... (other methods)
+
+    def load_bookmarks(self):
+        # Load bookmarks from a file (if the file exists)
+        try:
+            with open("bookmarks.json", "r") as file:
+                data = file.read()
+                if data:
+                    self.bookmarks = json.loads(data)
+                else:
+                    self.bookmarks = []  # Provide a default value
+        except FileNotFoundError:
+            self.bookmarks = []  # Provide a default value if the file doesn't exist
+
+    def save_bookmarks(self):
+        # Save bookmarks to a file
+        with open("bookmarks.json", "w") as file:
+            json.dump(self.bookmarks, file)
+
 
 # Create a HistoryDialog class for displaying history
 class HistoryDialog(QDialog):
@@ -242,6 +289,19 @@ class ExtensionsDialog(QDialog):
             self.extensions_list.addItem(f"{extension.name} - {extension.description}")
 
         layout.addWidget(self.extensions_list)
+        self.setLayout(layout)
+
+
+class BookmarksDialog(QDialog):
+    def __init__(self, bookmarks, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Bookmarks")
+        layout = QVBoxLayout()
+
+        self.bookmarks_list = QListWidget()
+        self.bookmarks_list.addItems(bookmarks)
+
+        layout.addWidget(self.bookmarks_list)
         self.setLayout(layout)
 
 
