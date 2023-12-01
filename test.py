@@ -32,25 +32,11 @@ class CustomWebEnginePage(QWebEnginePage):
     external_windows = []
 
     def acceptNavigationRequest(self, url, _type, isMainFrame):
-        if (
-            _type
-            == QWebEnginePage.NavigationTypeLinkClicked
-            # and url.host() != "http://google.com"
-        ):
-            # Pop up external links into a new window.
-            # w = QWebEngineView()
-            # w.setUrl(url)
-            # w.show()
-            w = None
-            # Check if the link is meant to be opened in the same window
-            if isMainFrame:
-                # Load the link in the current window
-                self.parent().browser.setUrl(url)
-            else:
-                # Open external links in a new window.
-                w = QWebEngineView()
-                w.setUrl(url)
-                w.show()
+        if _type == QWebEnginePage.NavigationTypeLinkClicked:
+            w = QWebEngineView()
+            w.setUrl(url)
+            w.show()
+            print(url)
 
             # Keep reference to external window, so it isn't cleared up.
             self.external_windows.append(w)
@@ -63,15 +49,9 @@ class MainWindow(QMainWindow):
         super(MainWindow, self).__init__()
         self.browser = QWebEngineView()
         self.browser.setPage(CustomWebEnginePage(self))
-        self.setCentralWidget(self.browser)
 
         self.browser.setUrl(QUrl("http://google.com"))
         self.setCentralWidget(self.browser)
-
-        self.browser.urlChanged.connect(
-            self.handle_url_change
-        )  # Connect to a new method
-
         self.showMaximized()
         self.history = []
         self.extensions = []
@@ -177,12 +157,8 @@ class MainWindow(QMainWindow):
 
         self.browser.urlChanged.connect(self.update_url)
 
-    def handle_url_change(self, q):
-        new_url = q.toString()
-        print(f"URL changed to: {new_url}")
-
     def navigate_home(self):
-        self.browser.setUrl(QUrl("https://google.com"))
+        self.browser.setUrl(QUrl("https://tiki.vn"))
 
     def show_history(self):
         history_dialog = HistoryDialog(self.history)
