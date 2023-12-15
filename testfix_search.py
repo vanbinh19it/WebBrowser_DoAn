@@ -29,7 +29,7 @@ from PyQt5.QtGui import QDesktopServices
 import requests
 
 
-# from pytube import YouTube
+from pytube import YouTube
 
 # download video youtube
 
@@ -45,13 +45,6 @@ class CustomWebEnginePage(QWebEnginePage):
             f"Accepting navigation request. URL: {url}, Type: {_type}, isMainFrame: {isMainFrame}"
         )
 
-        if "youtube.com" in url.toString():
-            # Do something different, maybe open it in the default browser or handle separately
-            print("YouTube video link detected. Skipping loading.")
-            return False
-
-        # Your existing logic
-
         if (
             _type == QWebEnginePage.NavigationTypeLinkClicked
             and url.host() != "http://google.com"
@@ -59,7 +52,7 @@ class CustomWebEnginePage(QWebEnginePage):
             # Pop up external links into a new window.
             w = QWebEngineView()
             w.setUrl(url)
-            # w.show()
+            w.show()
             w = None
             # Check if the link is meant to be opened in the same window
             if isMainFrame:
@@ -70,11 +63,11 @@ class CustomWebEnginePage(QWebEnginePage):
                 w = QWebEngineView()
                 w.setUrl(url)
                 w.show()
+                w = None
 
             # Keep reference to external window, so it isn't cleared up.
             self.external_windows.append(w)
             return False
-
         return super().acceptNavigationRequest(url, _type, isMainFrame)
 
     # def acceptNavigationRequest(self, url, _type, isMainFrame):
@@ -198,9 +191,9 @@ class MainWindow(QMainWindow):
         history_action.triggered.connect(self.show_history)
         navbar.addAction(history_action)
 
-        # download_btn = QAction("Download Video", self)
-        # download_btn.triggered.connect(self.download_video)
-        # navbar.addAction(download_btn)
+        download_btn = QAction("Download Video", self)
+        download_btn.triggered.connect(self.download_video)
+        navbar.addAction(download_btn)
 
         extensions_action = QAction("Show Extensions", self)
         extensions_action.triggered.connect(self.show_extensions)
@@ -297,22 +290,22 @@ class MainWindow(QMainWindow):
         self.browser.setUrl(QUrl(search_url))
         self.history.append(search_url)
 
-        #  Download video youtube
-        # def download_video(self):
-        # current_url = self.browser.url().toString()
-        # if "youtube.com" in current_url:
-        #     try:
-        #         yt = YouTube(current_url)
-        #         video_stream = yt.streams.get_highest_resolution()
-        #         save_path = (
-        #             "your_directory"  # Thay thế bằng đường dẫn thư mục lưu trữ thực tế
-        #         )
-        #         video_stream.download(output_path=save_path)
-        #         print("Video đã được tải xuống thành công.")
-        #     except Exception as e:
-        #         print(f"Lỗi: {e}")
-        # else:
-        #     print("Không thể tải video từ trang web khác YouTube.")
+    #  Download video youtube
+    def download_video(self):
+        current_url = self.browser.url().toString()
+        if "youtube.com" in current_url:
+            try:
+                yt = YouTube(current_url)
+                video_stream = yt.streams.get_highest_resolution()
+                save_path = (
+                    "your_directory"  # Thay thế bằng đường dẫn thư mục lưu trữ thực tế
+                )
+                video_stream.download(output_path=save_path)
+                print("Video đã được tải xuống thành công.")
+            except Exception as e:
+                print(f"Lỗi: {e}")
+        else:
+            print("Không thể tải video từ trang web khác YouTube.")
 
     def open_url(self, url):
         self.browser.setUrl(QUrl(url))
