@@ -116,6 +116,8 @@ class MainWindow(QMainWindow):
         )  # Connect to a new method
 
         self.history = []
+        self.load_history()
+
         self.extensions = []
         self.setCentralWidget(self.browser)
         self.showMaximized()
@@ -184,6 +186,18 @@ class MainWindow(QMainWindow):
         show_bookmarks_btn.triggered.connect(self.show_bookmarks_dialog)
         navbar.addAction(show_bookmarks_btn)
 
+        # Create a menu action for history
+
+        history_action = QAction("Show History", self)
+        history_action.triggered.connect(self.show_history)  # Connect to the new method
+        menu_bar.addAction(history_action)
+
+        # Create a button to show history
+
+        history_action = QAction("History", self)
+        history_action.triggered.connect(self.save_history)  # Fix the method name here
+        menu_bar.addAction(history_action)
+
         self.url_bar = QLineEdit()
         self.url_bar.returnPressed.connect(self.navigate_to_url)
         navbar.addWidget(self.url_bar)
@@ -196,10 +210,6 @@ class MainWindow(QMainWindow):
         search_btn = QAction("Search", self)
         search_btn.triggered.connect(self.search)
         navbar.addAction(search_btn)
-
-        history_action = QAction("History", self)
-        history_action.triggered.connect(self.show_history)
-        navbar.addAction(history_action)
 
         # download_btn = QAction("Download Video", self)
         # download_btn.triggered.connect(self.download_video)
@@ -229,10 +239,6 @@ class MainWindow(QMainWindow):
 
     def navigate_home(self):
         self.browser.setUrl(QUrl("https://google.com"))
-
-    def show_history(self):
-        history_dialog = HistoryDialog(self.history)
-        history_dialog.exec_()
 
     def show_extensions(self):
         extensions_dialog = ExtensionsDialog(self.extensions)
@@ -411,6 +417,38 @@ class MainWindow(QMainWindow):
         with open("bookmarks.json", "w") as file:
             json.dump(self.bookmarks, file)
 
+    # history
+    def handle_url_change(self, q):
+        new_url = q.toString()
+        print(f"URL changed to: {new_url}")
+        self.history.append(new_url)
+        self.save_history()
+
+    def get_recent_history(self):
+        # Return the last 20 items from the history
+        return self.history[-20:]
+
+    def save_history(self):
+        # Save the history to a JSON file
+        with open("history.json", "w") as file:
+            json.dump(self.history, file)
+
+    def load_history(self):
+        # Load history from a file (if the file exists)
+        try:
+            with open("history.json", "r") as file:
+                data = file.read()
+                if data:
+                    self.history = json.loads(data)
+                else:
+                    self.history = []  # Provide a default value
+        except FileNotFoundError:
+            self.history = []  # Provide a default value if the file doesn't exist
+
+    def show_history(self):
+        history_dialog = HistoryDialog(self, self.get_recent_history())
+        history_dialog.exec_()
+
 
 # Create a HistoryDialog class for displaying history
 class HistoryDialog(QDialog):
@@ -469,8 +507,30 @@ class BookmarksDialog(QDialog):
         self.bookmark_selected.emit(selected_url)
 
 
+# history
+class HistoryDialog(QDialog):
+    def __init__(self, parent, history):
+        super().__init__(parent)
+        self.setWindowTitle("History")
+        layout = QVBoxLayout()
+
+        self.history_list = QListWidget()
+        self.history_list.addItems(history)
+        self.history_list.itemDoubleClicked.connect(self.open_history_url)
+
+        layout.addWidget(self.history_list)
+        self.setLayout(layout)
+
+    def open_history_url(self, item):
+        selected_index = self.history_list.row(item)
+        selected_url = item.text()
+        self.parent().browser.setUrl(QUrl(selected_url))
+        self.accept()
+
+
 app = QApplication(sys.argv)
 QApplication.setApplicationName("Sagar's Browser")
 window = MainWindow()
+# window.setup_ui()  # Call the method to set up the UI
 # window.show()
 app.exec_()
