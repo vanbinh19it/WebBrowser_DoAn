@@ -314,13 +314,6 @@ class MainWindow(QMainWindow):
         bookmarks_dialog = BookmarksDialog(self.bookmarks, parent=self)
         bookmarks_dialog.exec_()
 
-        # bookmarks_dialog = BookmarksDialog(self.bookmarks, parent=self)
-        # bookmarks_dialog.bookmark_selected.connect(self.open_bookmark)
-        # bookmarks_dialog.add_bookmark.connect(self.add_bookmark)
-        # bookmarks_dialog.edit_bookmark.connect(self.edit_bookmark)
-        # bookmarks_dialog.delete_bookmark.connect(self.delete_bookmark)
-        # bookmarks_dialog.exec_()
-
     # add bookmarks
     def add_bookmark(self):
         current_url = self.browser.url().toString()

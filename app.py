@@ -115,7 +115,6 @@ class MainWindow(QMainWindow):
             self.handle_url_change
         )  # Connect to a new method
 
-        self.showMaximized()
         self.history = []
         self.extensions = []
         self.setCentralWidget(self.browser)
@@ -175,6 +174,10 @@ class MainWindow(QMainWindow):
         bookmark_btn = QAction("Bookmark", self)
         bookmark_btn.triggered.connect(self.add_bookmark)
         navbar.addAction(bookmark_btn)
+
+        # Create bookmark list widget
+        self.bookmarks_list = QListWidget()
+        self.bookmarks_list.itemDoubleClicked.connect(self.open_bookmark)
 
         # Corrected method name
         show_bookmarks_btn = QAction("Show Bookmarks", self)
@@ -317,22 +320,79 @@ class MainWindow(QMainWindow):
     def open_url(self, url):
         self.browser.setUrl(QUrl(url))
 
-    def show_bookmarks_dialog(self):
-        bookmarks_dialog = BookmarksDialog(self.bookmarks, parent=self)
-        bookmarks_dialog.exec_()
+    def update_browser_url(self, url):
+        self.browser.setUrl(QUrl(url))
 
     # add bookmarks
     def add_bookmark(self):
         current_url = self.browser.url().toString()
-        if current_url not in self.bookmarks:
-            self.bookmarks.append(current_url)
+        title, ok = QInputDialog.getText(
+            self, "Add Bookmark", "Enter a title for the bookmark:"
+        )
+        if ok and title:
+            bookmark = {"title": title, "url": current_url}
+            self.bookmarks.append(bookmark)
             QMessageBox.information(
                 self, "Bookmark Added", "Bookmark added successfully."
             )
-            # Save bookmarks to file after adding a new bookmark
             self.save_bookmarks()
 
-    # ... (other methods)
+    def edit_bookmark(self):
+        current_item = self.bookmarks_list.currentItem()
+        if current_item:
+            current_index = self.bookmarks_list.row(current_item)
+            current_url = self.browser.url().toString()
+            title, ok = QInputDialog.getText(
+                self,
+                "Edit Bookmark",
+                "Enter a new title for the bookmark:",
+                text=current_item.text(),
+            )
+            if ok and title:
+                self.bookmarks[current_index]["title"] = title
+                self.bookmarks[current_index]["url"] = current_url
+                QMessageBox.information(
+                    self, "Bookmark Updated", "Bookmark updated successfully."
+                )
+                self.save_bookmarks()
+
+    def refresh_bookmarks_list(self):
+        # Clear the existing items in the list
+        self.bookmarks_list.clear()
+
+        # Add bookmarks to the list using 'title' key
+        for bookmark in self.bookmarks:
+            if "title" in bookmark:
+                self.bookmarks_list.addItem(bookmark["title"])
+            else:
+                print("Invalid bookmark format:", bookmark)
+
+    def show_bookmarks_dialog(self):
+        bookmarks_dialog = BookmarksDialog(self.bookmarks, parent=self)
+        bookmarks_dialog.bookmark_selected.connect(self.open_bookmark)
+        bookmarks_dialog.exec_()
+
+        # Kiểm tra xem người dùng đã đóng hộp thoại hay chưa
+
+        if bookmarks_dialog.exec_() == QDialog.Accepted:
+            # Cập nhật danh sách bookmark
+            self.refresh_bookmarks_list()
+
+            # Cập nhật QListWidget
+            self.bookmarks_list.clear()
+            for bookmark in self.bookmarks:
+                if "title" in bookmark:
+                    self.bookmarks_list.addItem(bookmark["title"])
+                else:
+                    print("Invalid bookmark format:", bookmark)
+
+        # else:
+        #     QMessageBox.information(
+        #         self, "Delete Cancelled", "Bookmark deletion cancelled."
+        #     )
+
+    def open_bookmark(self, url):
+        self.browser.setUrl(QUrl(url))
 
     def load_bookmarks(self):
         # Load bookmarks from a file (if the file exists)
@@ -381,16 +441,32 @@ class ExtensionsDialog(QDialog):
 
 
 class BookmarksDialog(QDialog):
+    bookmark_selected = pyqtSignal(str)
+
     def __init__(self, bookmarks, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Bookmarks")
         layout = QVBoxLayout()
 
         self.bookmarks_list = QListWidget()
-        self.bookmarks_list.addItems(bookmarks)
+
+        # Add bookmarks to the list using 'title' key
+        for bookmark in bookmarks:
+            if "title" in bookmark:
+                self.bookmarks_list.addItem(bookmark["title"])
+            else:
+                print("Invalid bookmark format:", bookmark)
+
+        # Connect itemDoubleClicked signal to the slot that emits bookmark_selected
+        self.bookmarks_list.itemDoubleClicked.connect(self.emit_bookmark_selected)
 
         layout.addWidget(self.bookmarks_list)
         self.setLayout(layout)
+
+    def emit_bookmark_selected(self, item):
+        selected_index = self.bookmarks_list.row(item)
+        selected_url = self.parent().bookmarks[selected_index]["url"]
+        self.bookmark_selected.emit(selected_url)
 
 
 app = QApplication(sys.argv)

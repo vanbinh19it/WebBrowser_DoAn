@@ -29,7 +29,7 @@ from PyQt5.QtGui import QDesktopServices
 import requests
 
 
-from pytube import YouTube
+# from pytube import YouTube
 
 # download video youtube
 
@@ -45,6 +45,13 @@ class CustomWebEnginePage(QWebEnginePage):
             f"Accepting navigation request. URL: {url}, Type: {_type}, isMainFrame: {isMainFrame}"
         )
 
+        if "youtube.com" in url.toString():
+            # Do something different, maybe open it in the default browser or handle separately
+            print("YouTube video link detected. Skipping loading.")
+            return False
+
+        # Your existing logic
+
         if (
             _type == QWebEnginePage.NavigationTypeLinkClicked
             and url.host() != "http://google.com"
@@ -52,7 +59,7 @@ class CustomWebEnginePage(QWebEnginePage):
             # Pop up external links into a new window.
             w = QWebEngineView()
             w.setUrl(url)
-            w.show()
+            # w.show()
             w = None
             # Check if the link is meant to be opened in the same window
             if isMainFrame:
@@ -63,11 +70,11 @@ class CustomWebEnginePage(QWebEnginePage):
                 w = QWebEngineView()
                 w.setUrl(url)
                 w.show()
-                w = None
 
             # Keep reference to external window, so it isn't cleared up.
             self.external_windows.append(w)
             return False
+
         return super().acceptNavigationRequest(url, _type, isMainFrame)
 
     # def acceptNavigationRequest(self, url, _type, isMainFrame):
@@ -108,7 +115,6 @@ class MainWindow(QMainWindow):
             self.handle_url_change
         )  # Connect to a new method
 
-        self.showMaximized()
         self.history = []
         self.extensions = []
         self.setCentralWidget(self.browser)
@@ -169,10 +175,19 @@ class MainWindow(QMainWindow):
         bookmark_btn.triggered.connect(self.add_bookmark)
         navbar.addAction(bookmark_btn)
 
+        # Create bookmark list widget
+        self.bookmarks_list = QListWidget()
+        self.bookmarks_list.itemDoubleClicked.connect(self.open_bookmark)
+
         # Corrected method name
         show_bookmarks_btn = QAction("Show Bookmarks", self)
         show_bookmarks_btn.triggered.connect(self.show_bookmarks_dialog)
         navbar.addAction(show_bookmarks_btn)
+
+        # Create delete bookmark action and add it to the toolbar
+        delete_bookmark_btn = QAction("Delete Bookmark", self)
+        delete_bookmark_btn.triggered.connect(self.delete_bookmark)
+        navbar.addAction(delete_bookmark_btn)
 
         self.url_bar = QLineEdit()
         self.url_bar.returnPressed.connect(self.navigate_to_url)
@@ -191,9 +206,9 @@ class MainWindow(QMainWindow):
         history_action.triggered.connect(self.show_history)
         navbar.addAction(history_action)
 
-        download_btn = QAction("Download Video", self)
-        download_btn.triggered.connect(self.download_video)
-        navbar.addAction(download_btn)
+        # download_btn = QAction("Download Video", self)
+        # download_btn.triggered.connect(self.download_video)
+        # navbar.addAction(download_btn)
 
         extensions_action = QAction("Show Extensions", self)
         extensions_action.triggered.connect(self.show_extensions)
@@ -290,49 +305,184 @@ class MainWindow(QMainWindow):
         self.browser.setUrl(QUrl(search_url))
         self.history.append(search_url)
 
-    #  Download video youtube
-    def download_video(self):
-        current_url = self.browser.url().toString()
-        if "youtube.com" in current_url:
-            try:
-                yt = YouTube(current_url)
-                video_stream = yt.streams.get_highest_resolution()
-                save_path = (
-                    "your_directory"  # Thay thế bằng đường dẫn thư mục lưu trữ thực tế
-                )
-                video_stream.download(output_path=save_path)
-                print("Video đã được tải xuống thành công.")
-            except Exception as e:
-                print(f"Lỗi: {e}")
-        else:
-            print("Không thể tải video từ trang web khác YouTube.")
+        #  Download video youtube
+        # def download_video(self):
+        # current_url = self.browser.url().toString()
+        # if "youtube.com" in current_url:
+        #     try:
+        #         yt = YouTube(current_url)
+        #         video_stream = yt.streams.get_highest_resolution()
+        #         save_path = (
+        #             "your_directory"  # Thay thế bằng đường dẫn thư mục lưu trữ thực tế
+        #         )
+        #         video_stream.download(output_path=save_path)
+        #         print("Video đã được tải xuống thành công.")
+        #     except Exception as e:
+        #         print(f"Lỗi: {e}")
+        # else:
+        #     print("Không thể tải video từ trang web khác YouTube.")
 
     def open_url(self, url):
         self.browser.setUrl(QUrl(url))
 
-    def show_bookmarks_dialog(self):
-        bookmarks_dialog = BookmarksDialog(self.bookmarks, parent=self)
-        bookmarks_dialog.exec_()
-
-        # bookmarks_dialog = BookmarksDialog(self.bookmarks, parent=self)
-        # bookmarks_dialog.bookmark_selected.connect(self.open_bookmark)
-        # bookmarks_dialog.add_bookmark.connect(self.add_bookmark)
-        # bookmarks_dialog.edit_bookmark.connect(self.edit_bookmark)
-        # bookmarks_dialog.delete_bookmark.connect(self.delete_bookmark)
-        # bookmarks_dialog.exec_()
+    def update_browser_url(self, url):
+        self.browser.setUrl(QUrl(url))
 
     # add bookmarks
     def add_bookmark(self):
         current_url = self.browser.url().toString()
-        if current_url not in self.bookmarks:
-            self.bookmarks.append(current_url)
+        title, ok = QInputDialog.getText(
+            self, "Add Bookmark", "Enter a title for the bookmark:"
+        )
+        if ok and title:
+            bookmark = {"title": title, "url": current_url}
+            self.bookmarks.append(bookmark)
             QMessageBox.information(
                 self, "Bookmark Added", "Bookmark added successfully."
             )
-            # Save bookmarks to file after adding a new bookmark
             self.save_bookmarks()
 
-    # ... (other methods)
+    def edit_bookmark(self):
+        current_item = self.bookmarks_list.currentItem()
+        if current_item:
+            current_index = self.bookmarks_list.row(current_item)
+            current_url = self.browser.url().toString()
+            title, ok = QInputDialog.getText(
+                self,
+                "Edit Bookmark",
+                "Enter a new title for the bookmark:",
+                text=current_item.text(),
+            )
+            if ok and title:
+                self.bookmarks[current_index]["title"] = title
+                self.bookmarks[current_index]["url"] = current_url
+                QMessageBox.information(
+                    self, "Bookmark Updated", "Bookmark updated successfully."
+                )
+                self.save_bookmarks()
+
+    # def delete_bookmark(self):
+    #     current_item = self.bookmarks_list.currentItem()
+    #     if current_item:
+    #         current_index = self.bookmarks_list.row(current_item)
+    #         title = current_item.text()
+    #         reply = QMessageBox.question(
+    #             self,
+    #             "Delete Bookmark",
+    #             f"Are you sure you want to delete the bookmark '{title}'?",
+    #             QMessageBox.Yes | QMessageBox.No,
+    #             QMessageBox.No,
+    #         )
+
+    #         if reply == QMessageBox.Yes:
+    #             del self.bookmarks[current_index]
+    #             QMessageBox.information(
+    #                 self, "Bookmark Deleted", "Bookmark deleted successfully."
+    #             )
+    #             self.save_bookmarks()
+    #             self.refresh_bookmarks_list()
+    #         else:
+    #             QMessageBox.information(
+    #                 self, "Delete Cancelled", "Bookmark deletion cancelled."
+    #             )
+
+    def delete_bookmark(self):
+        current_item = self.bookmarks_list.currentItem()
+        reply = QMessageBox.No  # Initialize with a default value
+
+        if current_item:
+            current_index = self.bookmarks_list.row(current_item)
+            title = current_item.text()
+            reply = QMessageBox.question(
+                self,
+                "Delete Bookmark",
+                f"Are you sure you want to delete the bookmark '{title}'?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+
+        if reply == QMessageBox.Yes:
+            del self.bookmarks[current_index]
+            QMessageBox.information(
+                self, "Bookmark Deleted", "Bookmark deleted successfully."
+            )
+            self.save_bookmarks()
+            self.refresh_bookmarks_list()
+        else:
+            QMessageBox.information(
+                self, "Delete Cancelled", "Bookmark deletion cancelled."
+            )
+
+    # def delete_bookmark(self):
+    #     current_item = self.bookmarks_list.currentItem()
+    #     # reply = QMessageBox.No  # Initialize with a default value
+
+    #     if current_item:
+    #         current_index = self.bookmarks_list.row(current_item)
+    #         title = current_item.text()
+    #         reply = QMessageBox.question(
+    #             self,
+    #             "Delete Bookmark",
+    #             f"Are you sure you want to delete the bookmark '{title}'?",
+    #             QMessageBox.Yes | QMessageBox.No,
+    #             QMessageBox.No,
+    #         )
+
+    #         if reply == QMessageBox.Yes:
+    #             del self.bookmarks[current_index]
+    #             QMessageBox.information(
+    #                 self, "Bookmark Deleted", "Bookmark deleted successfully."
+    #             )
+    #             self.save_bookmarks()
+
+    #             # Cập nhật danh sách bookmark
+    #             self.refresh_bookmarks_list()
+
+    #             # Cập nhật QListWidget
+    #             self.bookmarks_list.clear()
+    #             for bookmark in self.bookmarks:
+    #                 if "title" in bookmark:
+    #                     self.bookmarks_list.addItem(bookmark["title"])
+    #                 else:
+    #                     print("Invalid bookmark format:", bookmark)
+
+    def refresh_bookmarks_list(self):
+        # Clear the existing items in the list
+        self.bookmarks_list.clear()
+
+        # Add bookmarks to the list using 'title' key
+        for bookmark in self.bookmarks:
+            if "title" in bookmark:
+                self.bookmarks_list.addItem(bookmark["title"])
+            else:
+                print("Invalid bookmark format:", bookmark)
+
+    def show_bookmarks_dialog(self):
+        bookmarks_dialog = BookmarksDialog(self.bookmarks, parent=self)
+        bookmarks_dialog.bookmark_selected.connect(self.open_bookmark)
+        bookmarks_dialog.exec_()
+
+        # Kiểm tra xem người dùng đã đóng hộp thoại hay chưa
+
+        if bookmarks_dialog.exec_() == QDialog.Accepted:
+            # Cập nhật danh sách bookmark
+            self.refresh_bookmarks_list()
+
+            # Cập nhật QListWidget
+            self.bookmarks_list.clear()
+            for bookmark in self.bookmarks:
+                if "title" in bookmark:
+                    self.bookmarks_list.addItem(bookmark["title"])
+                else:
+                    print("Invalid bookmark format:", bookmark)
+
+        # else:
+        #     QMessageBox.information(
+        #         self, "Delete Cancelled", "Bookmark deletion cancelled."
+        #     )
+
+    def open_bookmark(self, url):
+        self.browser.setUrl(QUrl(url))
 
     def load_bookmarks(self):
         # Load bookmarks from a file (if the file exists)
@@ -381,16 +531,32 @@ class ExtensionsDialog(QDialog):
 
 
 class BookmarksDialog(QDialog):
+    bookmark_selected = pyqtSignal(str)
+
     def __init__(self, bookmarks, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Bookmarks")
         layout = QVBoxLayout()
 
         self.bookmarks_list = QListWidget()
-        self.bookmarks_list.addItems(bookmarks)
+
+        # Add bookmarks to the list using 'title' key
+        for bookmark in bookmarks:
+            if "title" in bookmark:
+                self.bookmarks_list.addItem(bookmark["title"])
+            else:
+                print("Invalid bookmark format:", bookmark)
+
+        # Connect itemDoubleClicked signal to the slot that emits bookmark_selected
+        self.bookmarks_list.itemDoubleClicked.connect(self.emit_bookmark_selected)
 
         layout.addWidget(self.bookmarks_list)
         self.setLayout(layout)
+
+    def emit_bookmark_selected(self, item):
+        selected_index = self.bookmarks_list.row(item)
+        selected_url = self.parent().bookmarks[selected_index]["url"]
+        self.bookmark_selected.emit(selected_url)
 
 
 app = QApplication(sys.argv)
