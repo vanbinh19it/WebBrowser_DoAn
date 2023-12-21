@@ -236,6 +236,35 @@ class MainWindow(QMainWindow):
 
         self.browser.urlChanged.connect(self.update_url)
 
+    def send_request(self, method):
+        url = self.browser.url().toString()
+        try:
+            if method == "GET":
+                response = requests.get(url)
+            elif method == "POST":
+                response = requests.post(url)
+            elif method == "HEAD":
+                response = requests.head(url)
+            else:
+                # Handle other HTTP methods if needed
+                print(f"Unsupported HTTP method: {method}")
+                return
+
+            self.display_response_info(response)
+            self.analyze_html_content(response.text)
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+            QMessageBox.critical(self, "Request Failed", f"Request failed: {e}")
+
+    def send_get_request(self):
+        self.send_request("GET")
+
+    def send_post_request(self):
+        self.send_request("POST")
+
+    def send_head_request(self):
+        self.send_request("HEAD")
+
     def handle_url_change(self, q):
         new_url = q.toString()
         print(f"URL changed to: {new_url}")
